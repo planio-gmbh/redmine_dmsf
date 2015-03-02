@@ -70,13 +70,17 @@ class DmsfFile < ActiveRecord::Base
   @@storage_path = nil
 
   def self.storage_path
-    unless @@storage_path.present?
-      @@storage_path = Setting.plugin_redmine_dmsf['dmsf_storage_directory'].strip
-      @@storage_path = Pathname(Redmine::Configuration['attachments_storage_path']).join('dmsf') if @@storage_path.blank? && Redmine::Configuration['attachments_storage_path'].present?
-      @@storage_path = Rails.root.join('files/dmsf').to_s if @@storage_path.blank?      
-      Dir.mkdir(@@storage_path) unless File.exists?(@@storage_path)    
-    end    
-    @@storage_path
+    # class variables are bad, mkay?
+    # instance variables in class methods too
+    # fixed storage dir for plan.io
+    tenant = if defined?(RedmineTenantable)
+      RedmineTenantable.tenant
+    else
+      'test'
+    end
+    storage_path = Rails.root.join('files' + tenant + 'dmsf').to_s
+    Dir.mkdir(storage_path) unless File.exists?(storage_path)
+    storage_path
   end
 
   # Lets introduce a write for storage path, that way we can also 
@@ -298,8 +302,14 @@ class DmsfFile < ActiveRecord::Base
       database = nil      
       begin        
         lang = Setting.plugin_redmine_dmsf['dmsf_stemming_lang'].strip
+        # fixed storage dir for plan.io
+        tenant = if defined?(RedmineTenantable)
+          RedmineTenantable.tenant
+        else
+          'test'
+        end
         databasepath = File.join(
-          Setting.plugin_redmine_dmsf['dmsf_index_database'].strip, lang)
+          'files', tenant, 'dmsf_index', lang)
         database = Xapian::Database.new(databasepath)        
       rescue Exception => e
         Rails.logger.warn 'REDMAIN_XAPIAN ERROR: Xapian database is not properly set or initiated or is corrupted.'
